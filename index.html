@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>UAS DCS Mission Planner</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0a0e1a; font-family: 'DM Mono', monospace; color: #c8d8f0; height: 100vh; overflow: hidden; }
+  ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: #0a0e1a; }
+  ::-webkit-scrollbar-thumb { background: #1e2d4a; border-radius: 3px; }
+  button { font-family: 'DM Mono', monospace; }
+  input { font-family: 'DM Mono', monospace; }
+  input::placeholder { color: #3a5070; }
+  input:focus { outline: none; border-color: #00c2ff !important; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState } = React;
+
+// "Missions" nodes are skipped — children of Missions become direct children of their parent
+const treeData = {
+  id: "root",
+  label: "Volunteer Decision",
+  subtitle: "Select your mission type to begin",
+  children: [
+    {
+      id: "pvp",
+      label: "Player vs Player (PVP)",
+      children: [
+        {
+          id: "pvp-weapon",
+          label: "Weapon Type?",
+          children: [
+            {
+              id: "pvp-guns",
+              label: "Guns",
+              children: [
+                { id: "pvp-guns-pvpzone", label: "PVP Zone", leaf: true },
+                { id: "pvp-guns-hunt", label: "Hunt the Hercules", leaf: true },
+              ],
+            },
+            {
+              id: "pvp-wvr",
+              label: "Within Visual Range (WVR)",
+              children: [
+                { id: "pvp-wvr-pvpzone", label: "PVP Zone", leaf: true },
+              ],
+            },
+            {
+              id: "pvp-bvr",
+              label: "Beyond Visual Range (BVR)",
+              children: [
+                { id: "pvp-bvr-pvpzone", label: "PVP Zone", leaf: true },
+              ],
+            },
+            {
+              id: "pvp-bombs",
+              label: "Bombs / Missiles / Rockets",
+              children: [
+                { id: "pvp-bombs-gm", label: "Game Master (Dynamic Spawn)", leaf: true },
+              ],
+            },
+            {
+              id: "pvp-antirad",
+              label: "Anti-Radiation",
+              children: [
+                { id: "pvp-antirad-gm", label: "Game Master (Dynamic Spawn)", leaf: true },
+                { id: "pvp-antirad-defend", label: "Defend the Airfield", leaf: true },
+                { id: "pvp-antirad-sead-f16", label: "SEAD F-16 Slot", leaf: true },
+                { id: "pvp-antirad-sead-f18", label: "SEAD F-18 Slot", leaf: true },
+                { id: "pvp-antirad-sead-su27", label: "SEAD SU-27 Slot", leaf: true },
+                { id: "pvp-antirad-sam", label: "Player SAM (Game Master)", leaf: true },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      id: "gen",
+      label: "General Aviation",
+      children: [
+        {
+          id: "gen-task",
+          label: "Task?",
+          children: [
+            {
+              id: "gen-takeoff",
+              label: "Takeoff",
+              children: [
+                {
+                  id: "gen-takeoff-loc",
+                  label: "Land or Carrier?",
+                  children: [
+                    { id: "gen-takeoff-land-dynspawn", label: "Dynamic Spawn (Land)", leaf: true },
+                    { id: "gen-takeoff-carrier-dynspawn", label: "Dynamic Spawn (Carrier)", leaf: true },
+                  ],
+                },
+              ],
+            },
+            {
+              id: "gen-landing",
+              label: "Landing",
+              children: [
+                {
+                  id: "gen-landing-loc",
+                  label: "Land or Carrier?",
+                  children: [
+                    { id: "gen-landing-land-dynspawn", label: "Dynamic Spawn (Land)", leaf: true },
+                    { id: "gen-landing-land-slots", label: "Landing Slots", leaf: true },
+                    { id: "gen-landing-carrier-dynspawn", label: "Dynamic Spawn (Carrier)", leaf: true },
+                    { id: "gen-landing-carrier-slots", label: "Carrier Landing Slots", leaf: true },
+                  ],
+                },
+              ],
+            },
+            {
+              id: "gen-formation",
+              label: "Formation Flying",
+              children: [
+                {
+                  id: "gen-form-more",
+                  label: "More than one visitor?",
+                  children: [
+                    { id: "gen-form-yes-result", label: "Formation Flying Blue Angels F-18 Slot", leaf: true },
+                    { id: "gen-form-no-result", label: "AI Formation Flying Blue Angels F-18 Slot", leaf: true },
+                  ],
+                },
+              ],
+            },
+            {
+              id: "gen-refuel",
+              label: "Aerial Refueling",
+              children: [
+                {
+                  id: "gen-refuel-type",
+                  label: "Boom or Drogue?",
+                  children: [
+                    { id: "gen-refuel-boom-f16", label: "Refueling - F-16 (Boom / KC-135)", leaf: true },
+                    { id: "gen-refuel-boom-dynspawn", label: "Dynamic Spawn (Boom)", leaf: true },
+                    { id: "gen-refuel-drogue-f16", label: "Refueling - F-16 (Drogue / S-3B)", leaf: true },
+                    { id: "gen-refuel-drogue-dynspawn", label: "Dynamic Spawn (Drogue)", leaf: true },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      id: "pve",
+      label: "Player vs Enemy (PVE)",
+      children: [
+        {
+          id: "pve-weapon",
+          label: "Weapon Type?",
+          children: [
+            {
+              id: "pve-guns",
+              label: "Guns",
+              children: [
+                {
+                  id: "pve-guns-target",
+                  label: "Air or Ground Target?",
+                  children: [
+                    { id: "pve-guns-dogfight", label: "Dogfight Zone", leaf: true },
+                    { id: "pve-guns-bomber", label: "Bomber Intercept", leaf: true },
+                    { id: "pve-guns-cas-range", label: "CAS Range (Dynamic Spawn)", leaf: true },
+                    { id: "pve-guns-cas-gm", label: "Game Master (Dynamic Spawn)", leaf: true },
+                  ],
+                },
+              ],
+            },
+            {
+              id: "pve-wvr",
+              label: "Within Visual Range (WVR)",
+              children: [
+                { id: "pve-wvr-zone", label: "WVR / BVR Zone", leaf: true },
+              ],
+            },
+            {
+              id: "pve-bvr",
+              label: "Beyond Visual Range (BVR)",
+              children: [
+                { id: "pve-bvr-zone", label: "WVR / BVR Zone", leaf: true },
+              ],
+            },
+            {
+              id: "pve-antiship",
+              label: "Anti-Ship",
+              children: [
+                { id: "pve-antiship-atbw", label: "ATBW Zone", leaf: true },
+                { id: "pve-antiship-gm", label: "Game Master (Dynamic Spawn)", leaf: true },
+              ],
+            },
+            {
+              id: "pve-antirad",
+              label: "Anti-Radiation",
+              children: [
+                { id: "pve-antirad-caszone", label: "CAS Zone (Dynamic Spawn)", leaf: true },
+                { id: "pve-antirad-sead-f16", label: "SEAD F-16 Slot", leaf: true },
+                { id: "pve-antirad-sead-f18", label: "SEAD F-18 Slot", leaf: true },
+                { id: "pve-antirad-sead-su27", label: "SEAD SU-27 Slot", leaf: true },
+              ],
+            },
+            {
+              id: "pve-bombs",
+              label: "Bombs / Missiles / Rockets",
+              children: [
+                { id: "pve-bombs-caszone", label: "CAS Zone (Dynamic Spawn)", leaf: true },
+                { id: "pve-bombs-cas-f16", label: "CAS F-16 Slot", leaf: true },
+                { id: "pve-bombs-cas-f18", label: "CAS F-18 Slot", leaf: true },
+                { id: "pve-bombs-cas-su27", label: "CAS SU-27 Slot", leaf: true },
+                { id: "pve-bombs-cas-su25", label: "CAS SU-25 Slot", leaf: true },
+                { id: "pve-bombs-cas-spitfire", label: "CAS Spitfire Slot", leaf: true },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+const C = {
+  bg: "#0a0e1a", panel: "#0f1524", border: "#1e2d4a",
+  accent: "#00c2ff", text: "#c8d8f0", textDim: "#5a7090",
+  hover: "#162035", leaf: "#00ff9d",
+  pvp: "#ff6b6b", pve: "#ffd93d", gen: "#6bcb77",
+};
+
+function branchColor(id) {
+  if (!id) return C.accent;
+  if (id.startsWith("pvp")) return C.pvp;
+  if (id.startsWith("pve")) return C.pve;
+  if (id.startsWith("gen")) return C.gen;
+  return C.accent;
+}
+
+// ── Collapsible tree for "Full Tree" tab ──────────────────────────────────────
+function TreeNode({ node, depth = 0, rootId }) {
+  const [open, setOpen] = useState(depth < 1);
+  const hasChildren = node.children && node.children.length > 0;
+  const color = branchColor(rootId || node.id);
+
+  return (
+    <div style={{ marginLeft: depth > 0 ? 16 : 0 }}>
+      <div
+        onClick={() => hasChildren && setOpen(o => !o)}
+        style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "5px 10px", marginBottom: 2, borderRadius: 6,
+          cursor: hasChildren ? "pointer" : "default",
+          borderLeft: depth > 0 ? `2px solid ${color}22` : "none",
+          transition: "background 0.12s",
+        }}
+        onMouseEnter={e => { if (hasChildren || node.leaf) e.currentTarget.style.background = C.hover; }}
+        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+      >
+        <span style={{ width: 12, flexShrink: 0, fontSize: 9, color: node.leaf ? C.leaf : color }}>
+          {node.leaf ? "◆" : hasChildren ? (open ? "▼" : "▶") : "·"}
+        </span>
+        <span style={{
+          color: node.leaf ? C.leaf : depth === 0 ? color : C.text,
+          fontSize: depth === 0 ? 14 : 13,
+          fontWeight: depth === 0 ? 700 : node.leaf ? 400 : 500,
+        }}>
+          {node.label}
+        </span>
+        {node.subtitle && <span style={{ color: C.textDim, fontSize: 11 }}>— {node.subtitle}</span>}
+      </div>
+      {open && hasChildren && (
+        <div style={{ borderLeft: `1px dashed ${color}33`, marginLeft: 16, paddingLeft: 4 }}>
+          {node.children.map(c => (
+            <TreeNode key={c.id} node={c} depth={depth + 1} rootId={rootId || node.id} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Wizard ────────────────────────────────────────────────────────────────────
+function Wizard() {
+  // history is array of nodes; current = last item
+  const [history, setHistory] = useState([treeData]);
+  const current = history[history.length - 1];
+  const color = history.length > 1 ? branchColor(history[1].id) : C.accent;
+
+  const choose = (child) => setHistory(h => [...h, child]);
+  const goBack = () => setHistory(h => h.length > 1 ? h.slice(0, -1) : h);
+  const reset = () => setHistory([treeData]);
+  const goTo = (i) => setHistory(h => h.slice(0, i + 1));
+
+  const isLeaf = current.leaf;
+  const hasChildren = current.children && current.children.length > 0;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", maxWidth: 640, margin: "0 auto", width: "100%" }}>
+
+      {/* Breadcrumb */}
+      <div style={{
+        display: "flex", flexWrap: "wrap", alignItems: "center", gap: "4px 6px",
+        padding: "10px 16px", borderBottom: `1px solid ${C.border}`, minHeight: 42,
+      }}>
+        {history.map((h, i) => (
+          <React.Fragment key={i}>
+            <span
+              onClick={() => goTo(i)}
+              style={{
+                color: i === history.length - 1 ? color : C.textDim,
+                fontSize: 11, cursor: i < history.length - 1 ? "pointer" : "default",
+                textDecoration: i < history.length - 1 ? "underline" : "none",
+                textDecorationColor: C.border,
+              }}
+            >{h.label}</span>
+            {i < history.length - 1 && <span style={{ color: C.border, fontSize: 10 }}>›</span>}
+          </React.Fragment>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px" }}>
+        {isLeaf ? (
+          <div style={{ textAlign: "center", paddingTop: 32 }}>
+            <div style={{
+              width: 60, height: 60, borderRadius: "50%",
+              background: `${C.leaf}18`, border: `2px solid ${C.leaf}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              margin: "0 auto 20px", fontSize: 26,
+            }}>✓</div>
+            <div style={{ color: C.leaf, fontSize: 11, letterSpacing: "0.12em", marginBottom: 12 }}>MISSION IDENTIFIED</div>
+            <div style={{
+              background: `${C.leaf}0e`, border: `1px solid ${C.leaf}44`,
+              borderRadius: 10, padding: "16px 28px", display: "inline-block",
+              color: C.leaf, fontSize: 18, fontWeight: 700,
+            }}>{current.label}</div>
+            <div style={{ color: C.textDim, fontSize: 11, marginTop: 20 }}>Good luck on the server!</div>
+          </div>
+        ) : (
+          <>
+            <div style={{ color: color, fontSize: 20, fontWeight: 700, marginBottom: 4 }}>
+              {current.label}
+            </div>
+            {current.subtitle && (
+              <div style={{ color: C.textDim, fontSize: 12, marginBottom: 20 }}>{current.subtitle}</div>
+            )}
+            {!current.subtitle && <div style={{ marginBottom: 16 }} />}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {(current.children || []).map(child => (
+                <button
+                  key={child.id}
+                  onClick={() => choose(child)}
+                  style={{
+                    background: child.leaf ? `${C.leaf}0d` : C.hover,
+                    border: `1px solid ${child.leaf ? C.leaf + "44" : C.border}`,
+                    borderRadius: 8, padding: "11px 16px",
+                    color: child.leaf ? C.leaf : C.text,
+                    fontSize: 14, textAlign: "left", cursor: "pointer",
+                    display: "flex", alignItems: "center", gap: 10,
+                    transition: "all 0.13s",
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = child.leaf ? `${C.leaf}1a` : C.border;
+                    e.currentTarget.style.borderColor = child.leaf ? C.leaf : color;
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = child.leaf ? `${C.leaf}0d` : C.hover;
+                    e.currentTarget.style.borderColor = child.leaf ? C.leaf + "44" : C.border;
+                  }}
+                >
+                  <span style={{ fontSize: 9, flexShrink: 0 }}>{child.leaf ? "◆" : "▶"}</span>
+                  <span style={{ flex: 1 }}>{child.label}</span>
+                  {!child.leaf && child.children && (
+                    <span style={{ color: C.textDim, fontSize: 11 }}>
+                      {child.children.length} option{child.children.length !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Nav */}
+      <div style={{
+        padding: "10px 16px", borderTop: `1px solid ${C.border}`,
+        display: "flex", gap: 8,
+      }}>
+        <button onClick={goBack} disabled={history.length === 1} style={navBtn(history.length === 1)}>← Back</button>
+        <button onClick={reset} style={navBtn(false)}>⟳ Reset</button>
+      </div>
+    </div>
+  );
+}
+
+function navBtn(disabled) {
+  return {
+    background: "transparent", border: `1px solid ${disabled ? "#1a2535" : C.border}`,
+    borderRadius: 6, padding: "6px 14px",
+    color: disabled ? "#2a3a50" : C.textDim,
+    fontSize: 12, cursor: disabled ? "default" : "pointer",
+  };
+}
+
+// ── Search ────────────────────────────────────────────────────────────────────
+function flattenLeaves(node, path = []) {
+  const p = [...path, node.label];
+  if (node.leaf) return [{ label: node.label, path: p, rootId: p.length > 1 ? path[0] : "" }];
+  return (node.children || []).flatMap(c => flattenLeaves(c, p));
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
+function App() {
+  const [tab, setTab] = useState("wizard");
+  const [search, setSearch] = useState("");
+
+  const allLeaves = flattenLeaves(treeData);
+  const results = search.trim().length > 1
+    ? allLeaves.filter(l => l.path.join(" ").toLowerCase().includes(search.toLowerCase()))
+    : [];
+
+  // root label → color map for search pill
+  const rootColor = (rootLabel) => {
+    if (rootLabel === "Player vs Player (PVP)") return C.pvp;
+    if (rootLabel === "Player vs Enemy (PVE)") return C.pve;
+    if (rootLabel === "General Aviation") return C.gen;
+    return C.accent;
+  };
+
+  return (
+    <div style={{ background: C.bg, height: "100vh", display: "flex", flexDirection: "column" }}>
+
+      {/* Header */}
+      <div style={{
+        background: C.panel, borderBottom: `1px solid ${C.border}`,
+        padding: "10px 20px", display: "flex", alignItems: "center",
+        justifyContent: "space-between", gap: 12, flexWrap: "wrap",
+      }}>
+        <div>
+          <div style={{ color: C.accent, fontWeight: 700, fontSize: 14, letterSpacing: "0.06em" }}>
+            UAS DCS MISSION PLANNER
+          </div>
+          <div style={{ color: C.textDim, fontSize: 10, letterSpacing: "0.1em" }}>by Joseph Curran</div>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <input
+            placeholder="Search missions…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{
+              background: C.bg, border: `1px solid ${C.border}`,
+              borderRadius: 6, padding: "6px 12px",
+              color: C.text, fontSize: 12, width: 180,
+            }}
+          />
+          {["wizard", "tree"].map(t => (
+            <button
+              key={t}
+              onClick={() => { setTab(t); setSearch(""); }}
+              style={{
+                background: tab === t ? `${C.accent}1a` : "transparent",
+                border: `1px solid ${tab === t ? C.accent : C.border}`,
+                borderRadius: 6, padding: "6px 14px",
+                color: tab === t ? C.accent : C.textDim,
+                fontSize: 12, cursor: "pointer",
+              }}
+            >
+              {t === "wizard" ? "Step-by-Step" : "Full Tree"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Search results overlay */}
+      {search.trim().length > 1 && (
+        <div style={{
+          background: C.panel, borderBottom: `1px solid ${C.border}`,
+          padding: "10px 20px", maxHeight: 260, overflowY: "auto",
+        }}>
+          <div style={{ color: C.textDim, fontSize: 10, letterSpacing: "0.1em", marginBottom: 8 }}>
+            {results.length} RESULT{results.length !== 1 ? "S" : ""}
+          </div>
+          {results.length === 0 && (
+            <div style={{ color: C.textDim, fontSize: 12 }}>No missions match "{search}"</div>
+          )}
+          {results.map((r, i) => {
+            const rc = rootColor(r.path[1]);
+            return (
+              <div key={i} style={{
+                padding: "7px 10px", borderRadius: 6, marginBottom: 4,
+                background: C.hover, border: `1px solid ${C.border}`,
+              }}>
+                <div style={{ color: C.leaf, fontSize: 12 }}>◆ {r.label}</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
+                  {r.path.slice(1, -1).map((p, j) => (
+                    <span key={j} style={{
+                      background: `${rc}18`, border: `1px solid ${rc}33`,
+                      borderRadius: 4, padding: "1px 6px",
+                      color: rc, fontSize: 10,
+                    }}>{p}</span>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Main */}
+      <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
+        {tab === "wizard" ? (
+          <Wizard />
+        ) : (
+          <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
+            {treeData.children.map(child => (
+              <TreeNode key={child.id} node={child} depth={0} rootId={child.id} />
+            ))}
+          </div>
+        )}
+      </div>
+
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
